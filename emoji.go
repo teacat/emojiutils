@@ -3,7 +3,6 @@ package emojiutils
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
@@ -30,20 +29,12 @@ func init() {
 	}
 
 	// Open the Emoji definition JSON and Unmarshal into map
-	jsonFile, err := os.Open(path.Dir(filename) + "/data/emoji.json")
-	if jsonFile != nil {
-		defer jsonFile.Close()
-	}
-	if err != nil && len(Emojis) < 1 {
-		fmt.Println(err)
-	}
-
-	byteValue, e := ioutil.ReadAll(jsonFile)
+	byteValue, e := os.ReadFile(path.Dir(filename) + "/data/emoji.json")
 	if e != nil {
 		panic(e)
 	}
 
-	err = json.Unmarshal(byteValue, &Emojis)
+	err := json.Unmarshal(byteValue, &Emojis)
 	if err != nil {
 		panic(e)
 	}
@@ -59,7 +50,7 @@ func LookupEmoji(emojiString string) (emoji Emoji, err error) {
 	if e, ok := Emojis[hexKey]; ok {
 		emoji = e
 	} else {
-		err = fmt.Errorf("No record for \"%s\" could be found", emojiString)
+		err = fmt.Errorf("no record for \"%s\" could be found", emojiString)
 	}
 
 	return emoji, err
@@ -85,9 +76,8 @@ func RemoveAll(input string) string {
 	matches := FindAll(input)
 
 	for _, item := range matches {
-		emo := item.Match.(Emoji)
-		rs := []rune(emo.Value)
-		for _, r := range rs {
+		emo := item.Match
+		for _, r := range emo.Value {
 			input = strings.ReplaceAll(input, string([]rune{r}), "")
 		}
 	}
