@@ -1,10 +1,10 @@
-package emoji
+package emojiutils
 
 import (
 	"errors"
 	"strings"
 
-	"github.com/tmdvs/Go-Emoji-Utils/utils"
+	"github.com/teacat/emojiutils/utils"
 )
 
 // SearchResult - Occurence of an emoji in a string
@@ -53,6 +53,21 @@ func Find(emojiString string, input string) (result SearchResult, err error) {
 	return result, errors.New("Emoji was not found")
 }
 
+// isDecoratorUnicode
+func isDecoratorUnicode(r rune) bool {
+	decorators := []string{
+		//"FE0F", // Variation // NOTE: Already blocked in L158
+		"200D", // Connector
+	}
+	s := utils.RunesToHexKey([]rune{r})
+	for _, v := range decorators {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
+
 // FindAll - Find all instances of emoji
 func FindAll(input string) (detectedEmojis SearchResults) {
 
@@ -68,6 +83,11 @@ func FindAll(input string) (detectedEmojis SearchResults) {
 		// If this index has been flaged as a modifier we do
 		// not want to process it again
 		if detectedModifiers[index] {
+			continue
+		}
+
+		//
+		if index-1 >= 0 && isDecoratorUnicode(runes[index-1]) {
 			continue
 		}
 
@@ -134,6 +154,10 @@ func FindAll(input string) (detectedEmojis SearchResults) {
 					detectedEmojis[i].Occurrences++
 					detectedEmojis[i].Locations = append(detectedEmojis[i].Locations, []int{index, index + emojiRuneLength})
 				} else {
+					// Don't count the Variation Unicode for colored emojis as an emoji
+					if e.Key == "FE0F" {
+						continue
+					}
 					detectedEmojis = append(detectedEmojis, SearchResult{
 						Match:       e,
 						Occurrences: 1,
