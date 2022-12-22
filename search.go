@@ -9,7 +9,7 @@ import (
 
 // SearchResult - Occurence of an emoji in a string
 type SearchResult struct {
-	Match       interface{}
+	Match       Emoji
 	Occurrences int
 	Locations   [][]int
 }
@@ -19,6 +19,14 @@ type SearchResults []SearchResult
 
 // IndexOf - Check to see if search results contains a specific element
 func (results SearchResults) IndexOf(result interface{}) int {
+	switch v := result.(type) {
+	case string:
+		var err error
+		result, err = LookupEmoji(v)
+		if err != nil {
+			return -1
+		}
+	}
 	for i, r := range results {
 		if r.Match == result {
 			return i
@@ -43,7 +51,7 @@ func Find(emojiString string, input string) (result SearchResult, err error) {
 	// Loop through emoji present in input and if any match the
 	// emoji we're looking for we'll return the result
 	for _, r := range allEmoji {
-		if r.Match.(Emoji).Key == emoji.Key {
+		if r.Match.Key == emoji.Key {
 			result = r
 			return
 		}
