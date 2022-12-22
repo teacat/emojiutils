@@ -6,14 +6,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-
-	"github.com/tmdvs/Go-Emoji-Utils/utils"
-
-	"github.com/tmdvs/Go-Emoji-Utils"
+	"os"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/teacat/emojiutils"
+	"github.com/teacat/emojiutils/utils"
 )
 
 type lookup struct {
@@ -40,64 +39,87 @@ func main() {
 	}
 
 	// Create a channel for lookups so that we can do this async
-	lookups := make(chan lookup)
+	lookups := []lookup{}
 
-	go func() {
-		// Find all emojis on the page
-		doc.Find("ul.emoji-grid li").Each(func(i int, s *goquery.Selection) {
-			// For each item found, get the band and title
-			emojiPage, _ := s.Find("a").Attr("href")
-			title, _ := s.Find("img").Attr("title")
+	// Find all emojis on the page
+	doc.Find("ul.emoji-grid li").Each(func(i int, s *goquery.Selection) {
+		// For each item found, get the band and title
+		emojiPage, _ := s.Find("a").Attr("href")
+		title, _ := s.Find("img").Attr("title")
 
-			fmt.Printf("Adding Emoji %d to lookups: %s - %s\n", i, title, emojiPage)
+		fmt.Printf("Preparing Emoji %d to lookups: %s - %s\n", i, title, emojiPage)
 
-			// Add this specific emoji to the lookups to complete
-			lookups <- lookup{
-				Name: title,
-				URL:  "https://emojipedia.org" + emojiPage,
-			}
+		// Add this specific emoji to the lookups to complete
+		lookups = append(lookups, lookup{
+			Name: title,
+			URL:  "https://emojipedia.org" + emojiPage,
 		})
+	})
 
-		close(lookups)
-	}()
+	// Create a WaitGroup so we can fetch multiple emojis and wait for them all to be fetched
+	wg := new(sync.WaitGroup)
 
-	emojis := map[string]emoji.Emoji{}
+	// Set the WaitGroup counter as total emojis amount we will fetch
+	wg.Add(len(lookups))
 
-	// Process a lookup
-	for lookup := range lookups {
-		fmt.Println("Looking up " + lookup.Name)
+	// The maximum parallel crawler to run at the same time
+	parallel := make(chan int, 10)
 
-		// Grab the emojipedia page for this emoji
-		res, err := http.Get(lookup.URL)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+	var emojis []emojiutils.Emoji
 
-		// Create a new goquery reader
-		doc, docErr := goquery.NewDocumentFromReader(res.Body)
-		if docErr != nil {
-			panic(docErr)
-		}
+	for i, v := range lookups {
+		parallel <- 1
 
-		// Grab the emoji from the "Copy emoji" input field on the HTML page
-		emojiString, _ := doc.Find(".copy-paste input[type=text]").Attr("value")
+		go func(i int, v lookup) {
+			fmt.Printf("[%d/%d] Looking up %s\n", i, len(lookups), v.Name)
 
-		// Convert the raw Emoji value to our hex key
-		hexString := utils.StringToHexKey(emojiString)
+			// Grab the emojipedia page for this emoji
+			res, err := http.Get(v.URL)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 
-		// Add this emoji to our map
-		emojis[hexString] = emoji.Emoji{
-			Key:        hexString,
-			Value:      emojiString,
-			Descriptor: lookup.Name,
-		}
+			// Create a new goquery reader
+			doc, docErr := goquery.NewDocumentFromReader(res.Body)
+			if docErr != nil {
+				panic(docErr)
+			}
 
-		// Print our progress to the console
-		fmt.Println(emojis[hexString])
+			// Grab the emoji from the "Copy emoji" input field on the HTML page
+			emojiString, _ := doc.Find(".copy-paste input[type=text]").Attr("value")
+
+			// Convert the raw Emoji value to our hex key
+			hexString := utils.StringToHexKey(emojiString)
+
+			// Add this emoji to our map
+			emojis = append(emojis, emojiutils.Emoji{
+				Key:        hexString,
+				Value:      emojiString,
+				Descriptor: v.Name,
+			})
+
+			// Print our progress to the console
+			fmt.Printf("→ %s, %s, %s\n", hexString, emojiString, v.Name)
+
+			// Mark as finished
+			wg.Done()
+
+			// Consume a number so we can start another web crawling
+			<-parallel
+		}(i, v)
+	}
+
+	// Wait for the all emojis to be fetched
+	wg.Wait()
+
+	emojiMap := make(map[string]emojiutils.Emoji)
+	for _, v := range emojis {
+		emojiMap[v.Key] = v
 	}
 
 	// Marshal the emojis map as JSON and write to the data directory
-	s, _ := json.MarshalIndent(emojis, "", "\t")
-	ioutil.WriteFile("data/emoji.json", []byte(s), 0644)
+	s, _ := json.MarshalIndent(emojiMap, "", "\t")
+	os.Mkdir("data", 0644)
+	os.WriteFile("data/emoji.json", []byte(s), 0644)
 }
