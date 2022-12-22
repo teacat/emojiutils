@@ -1,4 +1,4 @@
-package emoji
+package emojiutils
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/tmdvs/Go-Emoji-Utils/utils"
+	"github.com/teacat/emojiutils/utils"
 )
 
 // Emoji - Struct representing Emoji
@@ -18,6 +18,8 @@ type Emoji struct {
 	Value      string `json:"value"`
 	Descriptor string `json:"descriptor"`
 }
+
+var Emojis = make(map[string]Emoji)
 
 // Unmarshal the emoji JSON into the Emojis map
 func init() {
@@ -38,9 +40,6 @@ func init() {
 
 	byteValue, e := ioutil.ReadAll(jsonFile)
 	if e != nil {
-		if len(Emojis) > 0 { // Use build-in emojis data (from emojidata.go)
-			return
-		}
 		panic(e)
 	}
 
