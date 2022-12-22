@@ -86,7 +86,7 @@ func FindAll(input string) (detectedEmojis SearchResults) {
 			continue
 		}
 
-		//
+		// NOTE:https://github.com/tmdvs/Go-Emoji-Utils/issues/12
 		if index-1 >= 0 && isDecoratorUnicode(runes[index-1]) {
 			continue
 		}
@@ -96,7 +96,9 @@ func FindAll(input string) (detectedEmojis SearchResults) {
 
 		// Ignore any basic runes, we'll get funny partials
 		// that we dont care about
-		if len(hexKey) < 4 {
+		//
+		// NOTE: 31-FE0F-20E3 1️⃣ Keycap Digit, https://github.com/tmdvs/Go-Emoji-Utils/issues/5
+		if len(hexKey) < 2 {
 			continue
 		}
 

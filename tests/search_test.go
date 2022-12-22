@@ -26,12 +26,13 @@ func BenchmarkComplexSearch(b *testing.B) {
 
 func TestRemoveAllEmoji(t *testing.T) {
 
-	str := "This is a string 😄 🐷 with some 👍🏻 🙈 emoji! 🐷 🏃🏿‍♂️ 🥰"
+	str := "This is a 1️⃣string 😄 🐷 with some 👍🏻 🙈 emoji! 🐷 🏃🏿‍♂️ 🥰"
 
 	matches := emojiutils.FindAll(str)
 	totalUniqueEmoji := len(matches)
+	log.Println(matches)
 
-	assert.Equal(t, 6, totalUniqueEmoji, "There should be six different emoji")
+	assert.Equal(t, 7, totalUniqueEmoji, "There should be six different emoji")
 
 	emojiRemoved := emojiutils.RemoveAll(str)
 	assert.Equal(t, "This is a string with some emoji!", emojiRemoved, "There should be no emoji")
